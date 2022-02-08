@@ -8,8 +8,8 @@ import pandas as pd
 import networkx as nx
 from multiprocessing import Pool, cpu_count
 
-from lattice_model import PercolationLattice
-from util import fermi_dist, tau
+from .lattice_model import PercolationLattice
+from .util import fermi_dist, tau
 
 
 class LatticeAnalysisRepeater:
@@ -24,6 +24,8 @@ class LatticeAnalysisRepeater:
                 self._dim_tuple = (xdim, xdim, xdim)
             else:
                 self._dim_tuple = (xdim[0], xdim[1], xdim[2])
+        else:
+            self._dim_tuple = (xdim, ydim, zdim)
         self._default_repeats = default_repeats
         self._data = defaultdict()
         self._parallel = parallel

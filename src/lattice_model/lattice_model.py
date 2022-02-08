@@ -7,7 +7,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-from util import tau
+from .util import tau
 
 
 class PercolationLattice:
