@@ -9,7 +9,7 @@ import networkx as nx
 from multiprocessing import Pool, cpu_count
 
 from .lattice_model import PercolationLattice
-from .util import fermi_dist, tau
+from .util import fermi_scaling_function, tau
 
 
 class LatticeAnalysisRepeater:
@@ -19,6 +19,15 @@ class LatticeAnalysisRepeater:
 
     def __init__(self, xdim, ydim=None, zdim=None, parallel=False,
                  default_repeats=100, random_state=1):
+        """
+        LatticeAnalysisRepeater: Performing averages of calculations.
+        :param xdim: size of grid along x-axis.
+        :param ydim: size of grid along y-axis.
+        :param zdim: size of grid along z-axis.
+        :param parallel: Parallelise the calculation for repeats.
+        :param default_repeats: Default number of repeats
+        :param random_state: Integer to seed the random generator.
+        """
         if ydim is None or zdim is None:
             if isinstance(xdim, (int, )):
                 self._dim_tuple = (xdim, xdim, xdim)
@@ -34,12 +43,22 @@ class LatticeAnalysisRepeater:
         np.random.seed(random_state)
 
     def possible_calculations(self):
+        """List possible calculations to perform."""
         return self.calculations_types
 
     def perform_analysis(self,
                          calculations=None,
                          probability=None,
                          n_repeats=None):
+        """
+        Perform statistical analysis on Lattice models to determine metrics
+        from the possible calculations in this model.
+        :param calculations: list of calculations to do
+        :param probability: float or array of floats for probabilities to
+                            measure at. If None then defaults to 0.5
+        :param n_repeats: integer number of repeats for each probability
+        :return:
+        """
         # Set up datastream
         data = {}
         data_agg = {}
@@ -89,13 +108,19 @@ class LatticeAnalysisRepeater:
             stds = df.std(axis=0)
             data[p_id] = {'p': p, 'data': df}
             data_agg[p_id] = {c: agg for c, agg in means.items()}
-            data_err[p_id] = {c: agg for c, agg in means.items()}
+            data_err[p_id] = {c: agg for c, agg in stds.items()}
 
         self._data = data
         self._aggregate_data = pd.DataFrame(data_agg).transpose()
         self._error_data = pd.DataFrame(data_err).transpose()
 
     def get_statistics_parallel(self, p, statistics_list=None):
+        """
+        Statistics function to be used to obtain statistics in parallell.
+        :param p: Fusion probability.
+        :param statistics_list: Which statistics to calculate.
+        :return:
+        """
         lattice = PercolationLattice(dim=self._dim_tuple,
                                      p=p)
         is_percolation = lattice.assess_percolation()
@@ -107,6 +132,12 @@ class LatticeAnalysisRepeater:
 
     def get_statistic(self, lattice: PercolationLattice,
                       calculation_type: str) -> float:
+        """
+        Determine statistics of a lattice
+        :param lattice: PercolationLattice object which has been connected.
+        :param calculation_type: List of statistics to calculate.
+        :return: value of the statistic.
+        """
         lattice_graph = lattice.get_lattice_graph()
         if calculation_type == 'avg_cluster':
             cluster_sizes = []
@@ -161,19 +192,33 @@ class LatticeAnalysisRepeater:
         return statistic
 
     def get_data(self, agg=True):
+        """
+        Return the data in a pandas format
+        :param agg: return means opposed to individual measurement.
+        :return: pandas.DataFrame
+        """
         if agg:
             return self._aggregate_data
         else:
             return self._data
 
     def get_error_data(self):
+        """Get errors of the calculations"""
         return self._error_data
 
     def obtain_random_value(self):
+        """Random number generator of class."""
         return np.random.randint(0, self.max_random_number)
 
-    def determine_threshold(self, recalculated=False, probability=None,
+    def determine_threshold(self,
+                            probability=None,
                             n_repeats=None):
+        """
+        Determine the threshold probability of the model for percolation.
+        :param probability: list of probabilities to sample at.
+        :param n_repeats: number of repeats at each probability.
+        :return: threshold probability where percolation happens at.
+        """
         if probability is None:
             probabilities = np.linspace(0.1, 0.9, 41)
         else:
@@ -184,10 +229,6 @@ class LatticeAnalysisRepeater:
                 raise TypeError(msg)
 
         repeat_no = self._default_repeats if n_repeats is None else n_repeats
-        """Finds the threshold probability of a lattice of given dimensions.
-           By default repeats 250 times for each probability.
-           Default probability range of Prob=np.linspace(0.10, 0.9, 41).
-        """
         percolations = []
         for p in probabilities:
             outcomes = []
@@ -199,12 +240,18 @@ class LatticeAnalysisRepeater:
                 outcomes.append(percolates)
             percolations.append(np.mean(outcomes))
 
-        results = spo.curve_fit(fermi_dist,
+        results = spo.curve_fit(fermi_scaling_function,
                                 probabilities,
                                 percolations, p0=[0.5, 1])
         return results[0][0]
 
     def average_path_length(self, p, n_repeats=None):
+        """
+        Calculates the average path length at a certain probability.
+        :param p: Probability to assess at.
+        :param n_repeats: Number of repeats to perform.
+        :return: average path length
+        """
         repeat_no = self._default_repeats if n_repeats is None else n_repeats
         lengths = []
         for rep in range(repeat_no):

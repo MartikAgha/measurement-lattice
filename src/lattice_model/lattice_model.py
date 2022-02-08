@@ -15,6 +15,15 @@ class PercolationLattice:
 
     def __init__(self, dim=None, p=0.75, random_state=None,
                  xdim=3, ydim=None, zdim=None):
+        """
+        PercolationLattice
+        :param dim: tuple (xdim, ydim, zdim)
+        :param p: probability of node fusion and connection.
+        :param random_state: integer to seed random generator
+        :param xdim: if dim is not specified, number of nodes along x-axis
+        :param ydim: if dim is not specified, number of nodes along y-axis
+        :param zdim: if dim is not specified, number of nodes along z-axis
+        """
         if dim is not None:
             try:
                 self._xdim = dim[0]
@@ -38,6 +47,7 @@ class PercolationLattice:
         self.reset_lattice()
 
     def reset_lattice(self):
+        """Resets the lattice and calls lattice construction."""
         self._lattice_graph = nx.Graph()
         self._lattice_graph.graph['xdim'] = self._xdim
         self._lattice_graph.graph['ydim'] = self._ydim
@@ -46,6 +56,7 @@ class PercolationLattice:
         self.construct_lattice()
 
     def construct_lattice(self):
+        """Set up the lattice with formation values and coordinates."""
         range_x = range(1, self._xdim + 1)
         range_y = range(1, self._ydim + 1)
         range_z = range(1, self._zdim + 1)
@@ -62,6 +73,11 @@ class PercolationLattice:
             self._lattice_graph.nodes[tau(x, y, z)]['value'] = formation_value
 
     def get_formation_value(self, number: float) -> float:
+        """
+        Value to determine level of connectivity to neighbours.
+        :param number: random_number
+        :return: formation_value
+        """
         if number <= self._p ** 2:
             formation_value = 3
         elif number <= self._p:
@@ -73,13 +89,16 @@ class PercolationLattice:
         return formation_value
 
     def get_lattice_graph(self):
+        """Return lattice graph."""
         return self._lattice_graph
 
     def connect_lattice(self):
+        """Connect all nodes in the lattice graph."""
         for node in self._lattice_graph.nodes():
             self.connect(node)
 
     def connect(self, node):
+        """Connect node to neighbours in its shell."""
         self._lattice_graph.nodes[node]['Checked'] = True
         # Keeping the convention arbitrary for generality.
         self.determine_shell(node)
@@ -96,15 +115,12 @@ class PercolationLattice:
                 continue
             else:
                 connected = False
-                """Not found a suiting node to connect to yet, so this BOOLEAN variable represents the connection status"""
                 prior = node
                 posterior = neighbour
                 jump_count = 1
                 while not connected:
-                    """CHANGE CONVENTION OF WISE_CHAIN FUNCTION HERE"""
                     jump_count += 1
                     chain_decider = self.wise_chain(prior, posterior)
-                    """Decides the next node to consider for a fusion to in the event of a diagonal connection"""
                     if (not chain_decider[1]) or (chain_decider[0] is None):
                         # Hit a boundary, no diagonal fusion possible
                         connected = True
@@ -113,11 +129,12 @@ class PercolationLattice:
                         prior, posterior = posterior, chain_decider[0]
                         self.determine_shell(posterior)
                         if prior in self._lattice_graph.nodes[posterior]['shell']:
-                            """Checks if the diagonal path has found its destination in the next node"""
+                            # Checks if the diagonal path has found its
+                            # destination in the next node
                             if self._lattice_graph.nodes[posterior]['Checked']:
-                                """Checks if this particular fusion has been considered before, if so, theres no need to make
-                                another edge.
-                                """
+                                # Checks if this particular fusion has been
+                                # considered before, if so, theres no need to make
+                                # another edge.
                                 connected = True
                             else:
                                 connected = True
@@ -132,16 +149,12 @@ class PercolationLattice:
     def determine_shell(self, node):
         """
         Instantiates a shell of immediately neighbouring points that
-        correspond to the fusion connections in a brickwork pattern. This is 
+        correspond to the fusion connections in a brickwork pattern. This is
         done by a positive and negative x-direction connection, and then
         alternation each consecutive node in any of three directions, between
         positive and negative connections in y-direction and z-direction.
-        
-        Parameters
-        ----------
-        
-        node : dict
-            Node in the networkx graph.
+
+        :param node: Node in the networkx graph.
         """
         shell = []
         nodex = self._lattice_graph.nodes[node]['X']
@@ -189,11 +202,17 @@ class PercolationLattice:
         self._lattice_graph.nodes[node]['shell'] = shell
 
     def wise_chain(self, node, neighbour):
-        """Wise_chain function which works on the exact same principles as the one above except
-           convention 2 is applied where  1 (+ve x connection) & 2 (-ve x connection)
-           are coupled. Also 3 (alternating y connection) & 4 (alternating z connection) are coupled.
-           Same notation and decision flow is used here.
-        """ 
+        """
+        Wise_chain function which works on the exact same principles as the one above except
+        convention 2 is applied where  1 (+ve x connection) & 2 (-ve x connection)
+        are coupled. Also 3 (alternating y connection) & 4 (alternating z connection) are coupled.
+        Same notation and decision flow is used here.
+        :param node: Node in the graph
+        :param neighbour: Neighbour of node in the graph
+        :return: [next_node, continue_chain] where next_node is the next
+                 node in the chain to consider, and continue_chain indicates
+                 if the chain still needs to continue.
+        """
         # Considers the neighbouring 'mate' of the current node.
         x_nn = self._lattice_graph.nodes[neighbour]['X']
         y_nn = self._lattice_graph.nodes[neighbour]['Y']
@@ -237,7 +256,12 @@ class PercolationLattice:
         return [next_node, continue_chain]
 
     def assess_percolation(self, premade=False):
-        """Not for use with extendable lattices or overlap windows"""
+        """
+        Determine if there is a percolation along the x-axis
+        :param premade: If True, then no need to reconnect the graph, simply
+                        need to just check.
+        :return: is_percolation, bool to indicate if there is a percolation.
+        """
         front_nodes = []
         back_nodes = []
         # Create two panels representing the nodes at the front and
@@ -258,6 +282,7 @@ class PercolationLattice:
         return False
 
     def edge_count(self):
+        """Counts the number of edges."""
         # edge_counts = [x, y, z, diagonal]
         edge_counts = [0, 0, 0, 0]
         for edge in self._lattice_graph.edges():
@@ -276,13 +301,14 @@ class PercolationLattice:
                 edge_counts[3] += 1
         return edge_counts
     
-    
     def average_cluster(self):
+        """Calculate average cluster size."""
         clusters = 0
         clusters_sq = 0
         total_no = 0.0
         for node in self._lattice_graph.nodes():
-            len_clust = len(nx.node_connected_component(self.__latt, node))
+            len_clust = len(nx.node_connected_component(self._lattice_graph,
+                                                        node))
             if len_clust != 1:
                 clusters += 1
                 clusters_sq += len_clust
@@ -296,8 +322,7 @@ class PercolationLattice:
             return mean, std, total_no
 
     def panels(self):
-        """RARELY USED (IGNORE THIS FUNCTION)
-           Sometimes used to find front/back set of nodes from which to deduce a percolation"""
+        """Find front/back set of nodes from which to deduce a percolation."""
         front, back = [], []
         for z in range(1, self._zdim + 1):
             for y in range(1, self._ydim + 1):
@@ -306,6 +331,7 @@ class PercolationLattice:
         return (back, front)
     
 def visualise(graph):
+    """Visualise networkx graph."""
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     xxs, xxh, xxf = [], [], []
